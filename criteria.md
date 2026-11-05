@@ -42,63 +42,61 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
+## 1. Real writers almost never get called AI
 
-<!-- Your criterion. It must name a number. -->
+Of 10 pieces of writing I know a real person wrote (including plain, simple
+writing like Ana's from my Milestone 1 notes), at most 1 gets the
+high-confidence AI label. This has to hold in each of the 3 runs.
 
-
-
-**Why this target:**
-
-
-
----
-
-## 2.
-
-<!-- Your criterion. -->
-
-
-
-**Why this target:**
-
-
+**Why this target:** Calling a real writer AI is the worst mistake this system
+can make. Missing some AI text only costs the site a little, but a wrong
+accusation costs the person a lot, so I only allow 1 in 10.
 
 ---
 
-## 3.
+## 2. Clearly-AI and clearly-human text score far apart
 
-<!-- Your criterion. -->
+My clearly_ai test text scores at least 0.3 higher (combined score) than my
+clearly_human test text, in each of the 3 runs.
 
-
-
-**Why this target:**
-
-
+**Why this target:** A gap smaller than 0.3 is too close to be confident. If
+the two obvious cases are that close, the system can't really tell them apart.
 
 ---
 
-## 4.
+## 3. All three labels can actually show up
 
-<!-- Your criterion. -->
+I submit 10 texts, and each of the three labels (high-confidence AI,
+high-confidence human, unsure) shows up at least 2 times.
 
-
-
-**Why this target:**
-
-
+**Why this target:** If each label shows up at least twice, at least we know
+it's working. Only one of each is not enough data to know it wasn't a fluke.
 
 ---
 
-## 5.
+## 4. Appeals get recorded
 
-<!-- Your criterion. -->
+When an appeal is sent with a real content_id, at least 9 out of 10 appeals
+change the item's status to under_review and show up in GET /log. An appeal
+with a content_id that doesn't exist gets an error back and changes nothing.
 
+**Why this target:** Nothing is ever perfect, so I leave room for 1 out of 10 to
+go wrong.
 
+---
 
-**Why this target:**
+## 5. Bad input gets a clear error, not a crash
 
+Every time, these get a 400 error with a message instead of crashing the
+service:
 
+- nothing entered, or only spaces
+- a number (or anything that isn't words) instead of text, with a message
+  telling the person to enter text
+- text longer than 1500 words
+
+**Why this target:** A clear error tells the writer what went wrong and what to
+fix, so they don't get stuck and have to send a support ticket.
 
 ---
 
