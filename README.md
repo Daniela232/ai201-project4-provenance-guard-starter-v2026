@@ -53,37 +53,98 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** Perplexity, basically how surprised GPT-2 is by each
+next word (`detector.py::model_signal`). Low surprise turns into a high AI
+score, from 0 to 1.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** AI writing is made by
+choosing likely next words, so another language model finds it really
+predictable. People tend to make weirder, more personal word choices.
 
-**What it can't see:**
+**What it can't see:** Being predictable doesn't mean something was written by
+AI. Plain writing with simple words and normal sentences can score as AI, like
+someone writing in their second language or a younger writer. AI text that
+uses unusual words could score as human. It also cuts off really long texts
+and can't score really short ones.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** The shape of the text, without reading it
+(`stylometry.py::style_signal`). Three things, each turned into a 0-1 "how AI
+does this look" number and then averaged:
 
-**Why that might differ between human and AI writing:**
+| Measure | What it is | Which way is AI | Weight |
+|---|---|---|---|
+| Sentence length spread | std dev of sentence lengths / mean | low spread = AI | 0.4 |
+| Punctuation density | commas, dashes, semicolons, colons, quotes, brackets, ! and ? per word | low density = AI | 0.4 |
+| Vocab variety | average unique-words ratio over 40-word windows | **high** variety = AI | 0.2 |
 
-**What it can't see:**
+**Why that might differ between human and AI writing:** AI writing usually has
+sentences that are all about the same medium length and not much interesting
+punctuation. Human writing is more uneven, like a really short sentence right
+next to a really long one, with dashes, colons, and quotes mixed in.
+
+The vocab one surprised me. I expected AI to have a narrower vocabulary, but on
+my test texts it was the opposite: clearly_ai scored 0.94 and clearly_human
+scored 0.83. The formal AI text keeps using new "big" words, and the casual
+human text repeats small words like "I", "and", "she". So I flipped it to match
+what I saw, and gave it the smallest weight because three texts isn't a lot of
+proof.
+
+**What it can't see:** It can't actually read. Anything that changes the shape
+but not the meaning will change its score, like adding typos, splitting
+sentences up, adding dashes, or pasting in a quote. That's really easy for
+someone to do on purpose. It also has a problem with short text: a single
+plain sentence has no punctuation and every word is unique, so "Just one
+sentence here." gets a style score of 0.8.
 
 ### The combining rule
 
-<!-- Write the rule in words, then give the numbers. What happens when the two
-     signals disagree? -->
+**The rule:** Average the two signals. If they're more than 0.3 apart, they
+disagree, so I pull the average halfway back toward 0.5 (unsure). This way
+something only gets a confident "AI" score if both signals agree, and one
+signal can never get someone accused by itself. That comes straight from my
+Milestone 1 notes, where calling a real writer AI is the worst mistake the
+system can make.
 
-**The rule:**
+**The numbers:** (all in `config.py`)
 
-**The numbers:**
+- `WEIGHT_MODEL_SIGNAL = 0.5`, `WEIGHT_STYLE_SIGNAL = 0.5`
+- `DISAGREEMENT_GAP = 0.3`: more than this apart counts as disagreeing
+- `DISAGREEMENT_PULL = 0.5`: how far toward 0.5 the score gets pulled (halfway)
+
+So `combined = avg`, or if `|model - style| > 0.3` then
+`combined = avg + (0.5 - avg) * 0.5`.
+
+Confidence (in the response) is how far the combined score is from the
+middle: `abs(combined - 0.5) * 2`. 0.5 is confidence 0, and 0 or 1 is
+confidence 1.
 
 **Where it lives:** `scoring.py::combine_signals`
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
-
 **A case where my two signals split, and what my rule does with it:**
+My clearly_human text. Signal one gave it 0.445 (kind of a shrug, leaning a
+little AI) and signal two gave it 0.057 (very human). That's a 0.39 gap, so my
+rule kicks in. The plain average would be 0.25, and my rule pulls it to 0.375.
+That moves a real human toward "unsure", which is the cost of this rule. I'm ok
+with it because "unsure" hurts a lot less than a wrong accusation.
 
+**My four test inputs:**
 
+| Input | model | style | gap | combined |
+|---|---|---|---|---|
+| clearly AI | 0.754 | 0.831 | 0.08 | 0.793 |
+| clearly human | 0.445 | 0.057 | 0.39 | 0.375 |
+| plain human writing (Ana-style) | 0.876 | 0.800 | 0.08 | **0.838** |
+| lightly-edited AI | 0.759 | 0.787 | 0.03 | 0.773 |
+
+**The big problem:** the plain human text scored *higher* than the clearly AI
+text. This is exactly the Ana case from my Milestone 1 notes. Both signals
+think plain, simple writing looks like AI, so they agree, and my disagreement
+rule can't help because it only kicks in when they disagree. No threshold can
+fix this either: any line that labels clearly AI (0.79) as AI would also label
+the plain human text (0.84) as AI. I'm leaving it as is and writing it down,
+because it's the most important thing for next unit's testing to hit.
 
 ---
 

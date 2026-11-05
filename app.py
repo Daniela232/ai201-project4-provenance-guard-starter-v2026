@@ -241,17 +241,34 @@ def submit():
         # The detector refuses text that's too short to judge (under 3 tokens).
         return jsonify({"error": "too_short", "message": str(exc)}), 400
 
+    # Step 5 — signal two, the style signal (tested first from the terminal:
+    #   python stylometry.py "some text").
+    import stylometry
+    import scoring
+
+    style_score = stylometry.style_signal(text)
+
+    # Step 6 — combine them with my disagreement rule (scoring.py::combine_signals).
+    combined_score = scoring.combine_signals(model_score, style_score)
+
+    # Confidence = how far the combined score is from the middle (0.5).
+    # 0.5 exactly -> 0.0 (no idea), 0.0 or 1.0 -> 1.0 (as sure as it gets).
+    confidence = round(abs(combined_score - 0.5) * 2, 4)
+
     # Step 4 — give it an id and log the decision. /appeal needs this id later.
     content_id = f"c_{uuid.uuid4().hex[:12]}"
-    guess = "unsure"           # placeholder until Milestone 4
-    confidence = 0.5           # placeholder until Milestone 4
+    guess = "unsure"           # placeholder until Milestone 5
     label = "not built yet"    # placeholder until Milestone 5
 
+    # Step 7 — log BOTH signal scores and the combined one, so next unit I can
+    # tell which signal was off when something goes wrong.
     audit.log_decision(
         content_id=content_id,
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
+        style_score=style_score,
+        combined_score=combined_score,
         label=label,
         status="decided",
     )
@@ -262,7 +279,8 @@ def submit():
         "confidence": confidence,
         "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
+        "combined_score": combined_score,
     }), 200
 
 

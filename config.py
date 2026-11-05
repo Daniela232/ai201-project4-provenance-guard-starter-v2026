@@ -61,6 +61,12 @@ MAX_WORDS = 1500
 WEIGHT_MODEL_SIGNAL = 0.5
 WEIGHT_STYLE_SIGNAL = 0.5
 
+# My disagreement rule (see scoring.py::combine_signals). If the two signals
+# are more than this far apart, they're arguing, so the score gets pulled
+# toward 0.5 (unsure). DISAGREEMENT_PULL is how far: 0.5 means halfway.
+DISAGREEMENT_GAP = 0.3
+DISAGREEMENT_PULL = 0.5
+
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
 # Where one label becomes another. Scores run 0.0 (confidently human) to 1.0

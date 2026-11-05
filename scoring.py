@@ -21,42 +21,33 @@ import config
 
 def combine_signals(model_score: float, style_score: float) -> float:
     """
-    Combine two 0–1 signals into one 0–1 score. ← TODO (Milestone 4)
+    Combine two 0-1 signals into one 0-1 score. Higher = more likely AI.
 
-    Both inputs point the same way: higher means more likely AI. Your output
-    should too.
+    My rule (rule 2, "disagreement means unsure"):
 
-    Args:
-        model_score: from `detector.model_signal` — how predictable the text is.
-        style_score: from `stylometry.style_signal` — the shape of the text.
+      1. Take the weighted average (0.5 model, 0.5 style, set in config.py).
+      2. If the two signals are more than 0.3 apart, they disagree. Then I
+         pull the average halfway back toward 0.5.
 
-    Returns:
-        A float from 0.0 (confidently human) to 1.0 (confidently AI).
+    Why: in my Milestone 1 notes I decided something should only get a
+    confident "AI" label if both signals agree, because calling a real writer
+    AI is the worst mistake this system can make. With this rule one signal
+    can't get someone accused on its own.
 
-    ⚠️ **Write the rule down before you code it, and put the numbers in your
-    README.** A weighted average is the obvious choice and it is not the only
-    one. Things worth thinking about:
-
-      - **What happens when they disagree?** One signal at 0.9 and the other at
-        0.1 averages to 0.5 — "unsure". Is that what you want? It might be
-        exactly right: two methods disagreeing IS uncertainty. Or you might
-        decide one signal is more trustworthy when they split.
-
-      - **Which way do you want to be wrong?** Weighting toward the signal that
-        reads more human means fewer false accusations and more AI text
-        getting through. There's no weighting that avoids the trade.
-
-      - Milestone 4 asks you to find a case where your two signals split and
-        write it down. That case is what this rule exists to handle.
-
-    The weights in config.py are placeholders. Change them, or ignore them and
-    write a different rule.
+    The cost: real human writing can land in "unsure" too. My clearly-human
+    test text got model 0.445 and style 0.057 (a 0.39 gap), so it gets pulled
+    from 0.25 to about 0.38. I'm ok with that because "unsure" hurts a lot
+    less than a wrong accusation.
     """
-    # TODO: replace this
-    return (
+    average = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
     )
+
+    if abs(model_score - style_score) > config.DISAGREEMENT_GAP:
+        average = average + (0.5 - average) * config.DISAGREEMENT_PULL
+
+    return round(average, 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:
