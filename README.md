@@ -121,14 +121,46 @@
      two off the response, so leaving them out costs you next unit's
      diagnostics. -->
 
+Milestone 3 version: only signal one is wired in, so `style_score` is still
+null and the guess, confidence, and label are placeholders. I'll replace this
+with the full run once the second signal and the labels are done.
+
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d '{"text": "The importance of effective time management cannot be overstated in today'"'"'s fast-paced work environment. Professionals who develop strong organizational habits are better positioned to meet deadlines and reduce stress. There are several key strategies that can help individuals improve their productivity.", "creator_id": "daniela"}'
 ```
 
 ```json
+{
+  "confidence": 0.5,
+  "content_id": "c_d29a52c2699c",
+  "guess": "unsure",
+  "label": "not built yet",
+  "model_score": 0.8033,
+  "style_score": null
+}
+```
 
+The log entry for it (`curl "http://127.0.0.1:5000/log?limit=1"`):
+
+```json
+{
+  "count": 1,
+  "entries": [
+    {
+      "combined_score": null,
+      "content_id": "c_d29a52c2699c",
+      "creator_id": "daniela",
+      "guess": "unsure",
+      "label": "not built yet",
+      "model_score": 0.8033,
+      "status": "decided",
+      "style_score": null,
+      "timestamp": "2026-11-05T01:23:08+00:00"
+    }
+  ]
+}
 ```
 
 **An appeal**

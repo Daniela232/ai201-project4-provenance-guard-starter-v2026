@@ -199,17 +199,71 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    # Step 2 — JSON goes in: pull text and creator_id out of the body.
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        # No body, broken JSON, or JSON that isn't an object (e.g. a bare list).
+        payload = {}
 
-    # TODO: delete this and build the route.
+    text = payload.get("text")
+    creator_id = payload.get("creator_id", "unknown")
+
+    # Bad input checks (criterion 5): every one of these gets a 400 with a
+    # message the writer can understand, never a crash.
+    if text is None or (isinstance(text, str) and not text.strip()):
+        return jsonify({
+            "error": "bad_request",
+            "message": "Nothing was entered. Please enter some text.",
+        }), 400
+    if not isinstance(text, str):
+        # e.g. a number or a list instead of words
+        return jsonify({
+            "error": "bad_request",
+            "message": "That isn't text. Please enter text.",
+        }), 400
+    if len(text.split()) > config.MAX_WORDS:
+        return jsonify({
+            "error": "too_long",
+            "message": f"That text is too long. Please keep it under {config.MAX_WORDS} words.",
+        }), 400
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        creator_id = "unknown"
+
+    # Step 3 — one real signal (tested first from the terminal:
+    #   python detector.py "some text").
+    # Imported here, not at the top, so the service starts fast; the model
+    # itself loads once on first use and then stays in memory.
+    import detector
+
+    try:
+        model_score = detector.model_signal(text)
+    except ValueError as exc:
+        # The detector refuses text that's too short to judge (under 3 tokens).
+        return jsonify({"error": "too_short", "message": str(exc)}), 400
+
+    # Step 4 — give it an id and log the decision. /appeal needs this id later.
+    content_id = f"c_{uuid.uuid4().hex[:12]}"
+    guess = "unsure"           # placeholder until Milestone 4
+    confidence = 0.5           # placeholder until Milestone 4
+    label = "not built yet"    # placeholder until Milestone 5
+
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        label=label,
+        status="decided",
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "guess": guess,
+        "confidence": confidence,
+        "label": label,
+        "model_score": model_score,
+        "style_score": None,
+    }), 200
 
 
 @app.post("/appeal")
