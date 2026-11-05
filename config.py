@@ -81,8 +81,12 @@ DISAGREEMENT_PULL = 0.5
 # getting through. There is no setting that avoids the trade — only settings
 # that decide who pays for it.
 
-HUMAN_THRESHOLD = 0.35
-AI_THRESHOLD = 0.65
+# My numbers. AI starts above 0.70 like my Milestone 1 notes said, so someone
+# like Ana has more room to land in "unsure" instead of being called AI. Human
+# is below 0.40 so my clearly-human test text (0.375 after the disagreement
+# rule) still gets the human label. That leaves a wide unsure band, 0.40-0.70.
+HUMAN_THRESHOLD = 0.40
+AI_THRESHOLD = 0.70
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub

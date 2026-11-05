@@ -1,5 +1,5 @@
 """
-Signal two: the style signal. (Milestone 4)
+Signal two: the style signal. ← YOU BUILD THIS IN MILESTONE 4
 
 Signal one reads the text for meaning. This one measures it *as text* — the
 shape of it, without understanding a word.
@@ -45,7 +45,7 @@ def words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9']+", text.lower())
 
 
-# ── The three measures ───────────────────────────────────────────────────────
+# ── The three measures — YOU BUILD THESE ─────────────────────────────────────
 
 # Punctuation I count. I left out periods because every sentence has one, so
 # they don't tell you anything. Dashes, semicolons, colons, quotes and brackets
@@ -170,3 +170,4 @@ if __name__ == "__main__":
     print(f"type_token_ratio         {type_token_ratio(text)}")
     print(f"punctuation_density      {punctuation_density(text)}")
     print(f"style_signal             {style_signal(text)}   (higher = more likely AI)")
+    print("\nAll zeros? These are stubs — Milestone 4 is where you build them.")

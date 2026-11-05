@@ -157,16 +157,23 @@ because it's the most important thing for next unit's testing to hit.
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | below 0.40 | This looks like it was written by a person. If you think something is wrong with this result, you can still appeal. |
+| unsure | 0.40 to 0.70 | We couldn't get an accurate read on this one, so we can't say whether a person or AI wrote it. This is not an accusation. If you have questions, you can appeal and a real person will review it. |
+| high-confidence AI | above 0.70 | This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it. |
+
+The ranges come from `config.py` (`HUMAN_THRESHOLD = 0.40`, `AI_THRESHOLD = 0.70`)
+and the label text lives in `scoring.py::score_to_label`. I checked that all
+three can actually show up: clearly_ai got 0.793 (AI), clearly_human got 0.375
+(human), and borderline got 0.432 (unsure).
 
 **Why I worded the "unsure" one this way:**
 <!-- It's the hardest of the three. It has to admit uncertainty without
      sounding like an accusation, because the person reading it may well have
      written every word themselves. -->
 
-
+It's not an accurate read, so it's an unsure label. I didn't want it to sound
+like we're accusing anyone, because the person reading it might have written
+every word.
 
 ---
 
@@ -182,45 +189,25 @@ because it's the most important thing for next unit's testing to hit.
      two off the response, so leaving them out costs you next unit's
      diagnostics. -->
 
-Milestone 3 version: only signal one is wired in, so `style_score` is still
-null and the guess, confidence, and label are placeholders. I'll replace this
-with the full run once the second signal and the labels are done.
+This is my Ana-style test text (plain writing from someone whose second
+language is English). It's a real false positive, which is why I used it for
+the appeal.
 
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "The importance of effective time management cannot be overstated in today'"'"'s fast-paced work environment. Professionals who develop strong organizational habits are better positioned to meet deadlines and reduce stress. There are several key strategies that can help individuals improve their productivity.", "creator_id": "daniela"}'
+  -d '{"text": "I moved to this city two years ago. At first it was hard for me. I did not know many people and my English was not very good. I worked in a small restaurant in the kitchen. The work was hard but the people were kind to me. My manager helped me with my English every day. Now I can talk with customers and I feel more confident. I am proud of how much I learned. I want to study nursing next year.", "creator_id": "ana"}'
 ```
 
 ```json
 {
-  "confidence": 0.5,
-  "content_id": "c_d29a52c2699c",
-  "guess": "unsure",
-  "label": "not built yet",
-  "model_score": 0.8033,
-  "style_score": null
-}
-```
-
-The log entry for it (`curl "http://127.0.0.1:5000/log?limit=1"`):
-
-```json
-{
-  "count": 1,
-  "entries": [
-    {
-      "combined_score": null,
-      "content_id": "c_d29a52c2699c",
-      "creator_id": "daniela",
-      "guess": "unsure",
-      "label": "not built yet",
-      "model_score": 0.8033,
-      "status": "decided",
-      "style_score": null,
-      "timestamp": "2026-11-05T01:23:08+00:00"
-    }
-  ]
+  "combined_score": 0.8382,
+  "confidence": 0.6764,
+  "content_id": "c_2ef3eab8e336",
+  "guess": "ai",
+  "label": "This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it.",
+  "model_score": 0.8764,
+  "style_score": 0.8
 }
 ```
 
@@ -229,22 +216,61 @@ The log entry for it (`curl "http://127.0.0.1:5000/log?limit=1"`):
 ```bash
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+  -d '{"content_id": "c_2ef3eab8e336", "reasoning": "I wrote this myself about my own life. English is my second language so I use simple words."}'
 ```
 
 ```json
+{
+  "content_id": "c_2ef3eab8e336",
+  "message": "Thanks, we got your appeal. A real person will review your writing, and the automatic result won't be used against you while that happens.",
+  "status": "under_review"
+}
+```
 
+An appeal with an id that doesn't exist gets a 404 and nothing is logged:
+
+```json
+{
+  "error": "not_found",
+  "message": "We couldn't find a submission with id c_doesnotexist."
+}
 ```
 
 **What the log shows afterwards**
 
 ```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+$ curl "http://127.0.0.1:5000/log?limit=2"
 ```
 
 ```json
-
+{
+  "count": 2,
+  "entries": [
+    {
+      "combined_score": 0.8382,
+      "content_id": "c_2ef3eab8e336",
+      "creator_id": "ana",
+      "guess": "ai",
+      "label": "This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it.",
+      "model_score": 0.8764,
+      "status": "decided",
+      "style_score": 0.8,
+      "timestamp": "2026-11-05T01:35:58+00:00"
+    },
+    {
+      "content_id": "c_2ef3eab8e336",
+      "creator_id": "ana",
+      "event": "appeal",
+      "reasoning": "I wrote this myself about my own life. English is my second language so I use simple words.",
+      "status": "under_review",
+      "timestamp": "2026-11-05T01:35:58+00:00"
+    }
+  ]
+}
 ```
+
+The original decision is still there, and the appeal is added right after it
+with status `under_review`.
 
 ---
 
