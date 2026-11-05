@@ -39,7 +39,37 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
+Provenance Guard is a small backend a writing site could plug in. You send it
+text, and it sends back a guess (AI, human, or unsure), how confident it is, a
+plain-English label for the reader, and a `content_id` the writer can use to
+appeal.
 
+1. Someone sends a `POST /submit` request with JSON that has the `text` and
+   their `creator_id`.
+2. `app.py::submit` checks the input first. If the body isn't a JSON object,
+   the text is missing, empty, or not a string, or it's over 1500 words, it
+   sends back a 400 error and stops there. This way the signals only ever get
+   real text.
+3. Signal one (`detector.py::model_signal`) runs the text through GPT-2 and
+   checks how predictable the wording is. It gives back a `model_score` from 0
+   to 1, where higher means more likely AI.
+4. Signal two (`stylometry.py::style_signal`) looks at the text's shape: how
+   much sentence lengths vary, how many different words are used, and
+   punctuation. It doesn't understand what the words mean. It also gives back
+   a score from 0 to 1 (`style_score`), where higher means more likely AI.
+5. `scoring.py::combine_signals` combines the two scores into one
+   `combined_score`. If the two signals disagree by more than 0.3, the score
+   gets pulled toward 0.5 (unsure).
+6. `scoring.py::score_to_label` turns that number into the actual sentence the
+   reader sees. There are three possible labels: high-confidence AI,
+   high-confidence human, or unsure.
+7. The service creates a `content_id`, writes everything to
+   `logs/audit.jsonl` with status `decided` using `audit.py::log_decision`, and
+   sends the same info back as JSON.
+
+If the writer thinks the result is wrong, they can send a `POST /appeal` with
+their `content_id` and their reasoning. That gets saved in the log and the
+status changes to `under_review`.
 
 ---
 
@@ -278,15 +308,30 @@ with status `under_review`.
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Help writing my five acceptance criteria.
+- *What came back:* Claude said it couldn't write them for me because the
+  brief says not to, so instead it asked me one question per area (false
+  positives, score spread, label coverage, appeals, bad input). After I
+  answered, it pointed out which ones someone else couldn't check: I'd said
+  "none or maybe 3" for false positives, which is two targets, my "max 3
+  sentences" limit would have rejected all three of my own test texts, and
+  "8 out of 10" for appeals meant I was ok with losing 2 writers' appeals.
+- *What I changed:* I picked 1 in 10 for false positives, made the length
+  limit 1500 words, went to 9 out of 10 for appeals, and changed criterion 3
+  from "each label at least once" to "at least 2 times" because one of each
+  isn't enough data. All the numbers are mine.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* For Claude to explain the three ways I could combine my
+  two signals so I could pick one.
+- *What came back:* A plain average, a "disagreement means unsure" rule, and a
+  weighted average leaning on one signal, each run on my real test scores. It
+  showed the trade-offs, like leaning on the style signal gives the cleanest
+  split but it's the easiest one to fool with typos or dashes.
+- *What I changed:* I picked rule 2, the disagreement rule, because it matches
+  what I wrote in Milestone 1 about only calling something AI if both signals
+  agree. I accepted that it pushes some real human writing toward "unsure".
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
