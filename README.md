@@ -407,20 +407,81 @@ too, with `audit.log_rejection`:
 <!-- Every attack with its outcome and a held-or-broke mark.
      `run_attacks.py --label before` produces the table. -->
 
+Full output: `results/attack_run_2026-11-08_1543_before.md` (from
+`run_attacks.py::main`). The run was against my unit 7 system with rate limiting
+on.
 
+**How I marked them:**
+
+- evasion and prompt injection on AI text: BROKE if the AI text didn't get the
+  AI label. I counted "unsure" as broke too, because the AI text still got
+  past the AI label, even if it never reached "human".
+- false positive (real human writing): BROKE if it got the AI label.
+- malformed: BROKE if it crashed, or if junk got a confident label.
+- flood: HELD if the limit kicked in and the rejections got logged.
+
+**Totals: 15 broke, 41 held.**
+
+| Family | Attacks | Held | Broke |
+|---|---|---|---|
+| evasion | 10 | 3 | 7 |
+| false_positive | 8 | 3 | 5 |
+| prompt_injection | 6 | 4 | 2 |
+| malformed | 20 | 19 | 1 |
+| flood_same_creator | 12 | 12 | 0 |
+| **total** | **56** | **41** | **15** |
+
+| ID | Family | Targeting | Status | Guess | model | style | Verdict |
+|---|---|---|---|---|---|---|---|
+
+
+Notes:
+
+- Nothing crashed. Every malformed request got a 400 or a normal answer, never a 500.
+- PI05 tried to inject fake fields into the audit log. It didn't work: the log
+  is still valid JSON on every line and the fake `"guess": "human"` stayed
+  inside the text.
+- PI04 tried to make the label hostile with a `<script>` tag. My labels are fixed
+  sentences, so the text can't change them.
+- RQ06 sent `creator_id` as an object and it got logged as `"unknown"`.
+- The flood rows went 200 ×10, then 429 ×2, and both 429s are in the log.
 
 **Ten audit log entries from the run**
 
 <!-- Choose entries that show the interesting failures, not the ten easiest. -->
 
-```json
+Three real writers called AI (FP03, FP04, FP02), junk called AI (MF05), two
+evasions that slipped into unsure (EV01, EV08), an injection that slipped
+into unsure (PI02), the log injection that didn't work (PI05), a request my
+route refused (RQ03, text was a number), and a rate-limit rejection from the
+flood rows.
 
+```json
+{"combined_score": 0.8275, "content_id": "c_34dfbaef303a", "creator_id": "attacker_FP03", "guess": "ai", "label": "This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it.", "model_score": 0.8051, "status": "decided", "style_score": 0.8498, "timestamp": "2026-11-08T20:43:10+00:00"}
+{"combined_score": 0.8313, "content_id": "c_e597a2fa17a2", "creator_id": "attacker_FP04", "guess": "ai", "label": "This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it.", "model_score": 0.8329, "status": "decided", "style_score": 0.8297, "timestamp": "2026-11-08T20:43:10+00:00"}
+{"combined_score": 0.7693, "content_id": "c_188fd46546c6", "creator_id": "attacker_FP02", "guess": "ai", "label": "This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it.", "model_score": 0.7387, "status": "decided", "style_score": 0.8, "timestamp": "2026-11-08T20:43:10+00:00"}
+{"combined_score": 0.8988, "content_id": "c_cf6188eacfbb", "creator_id": "attacker_MF05", "guess": "ai", "label": "This looks like it was written by AI. If you wrote this yourself, you can appeal and a real person will review it.", "model_score": 0.9976, "status": "decided", "style_score": 0.8, "timestamp": "2026-11-08T20:43:12+00:00"}
+{"combined_score": 0.5256, "content_id": "c_0ff5d6127890", "creator_id": "attacker_EV01", "guess": "unsure", "label": "We couldn't get an accurate read on this one, so we can't say whether a person or AI wrote it. This is not an accusation. If you have questions, you can appeal and a real person will review it.", "model_score": 0.1635, "status": "decided", "style_score": 0.9388, "timestamp": "2026-11-08T20:43:08+00:00"}
+{"combined_score": 0.5613, "content_id": "c_c8864c48bad2", "creator_id": "attacker_EV08", "guess": "unsure", "label": "We couldn't get an accurate read on this one, so we can't say whether a person or AI wrote it. This is not an accusation. If you have questions, you can appeal and a real person will review it.", "model_score": 0.2452, "status": "decided", "style_score": 1.0, "timestamp": "2026-11-08T20:43:09+00:00"}
+{"combined_score": 0.4764, "content_id": "c_1c084023c39c", "creator_id": "attacker_PI02", "guess": "unsure", "label": "We couldn't get an accurate read on this one, so we can't say whether a person or AI wrote it. This is not an accusation. If you have questions, you can appeal and a real person will review it.", "model_score": 0.2044, "status": "decided", "style_score": 0.7012, "timestamp": "2026-11-08T20:43:11+00:00"}
+{"combined_score": 0.5711, "content_id": "c_415944f89d4e", "creator_id": "attacker_PI05", "guess": "unsure", "label": "We couldn't get an accurate read on this one, so we can't say whether a person or AI wrote it. This is not an accusation. If you have questions, you can appeal and a real person will review it.", "model_score": 0.6401, "status": "decided", "style_score": 0.5021, "timestamp": "2026-11-08T20:43:11+00:00"}
+{"creator_id": "attacker_RQ03", "event": "rejected", "reason": "not_text", "status": "rejected", "status_code": 400, "text_type": "int", "timestamp": "2026-11-08T20:43:13+00:00"}
+{"creator_id": "attacker_flood", "event": "rejected", "limit": "10 per 1 minute", "reason": "rate_limited", "status": "rejected", "timestamp": "2026-11-08T20:43:14+00:00"}
 ```
 
 **The single worst outcome** — the one I'd least want to explain to a writer
 whose work got caught by it:
 
+FP03, "a non-native English speaker writing carefully". This is basically Ana
+from my Milestone 1 notes, and my system did exactly what I was afraid of. It
+got model 0.81 and style 0.85, combined 0.83, and the label said:
 
+> This looks like it was written by AI. If you wrote this yourself, you can
+> appeal and a real person will review it.
+
+The text:
+
+> I want to describe my experience of the first month in this country. The weather was very different from my home. I did not expect the rain to continue for so many days. My colleagues were kind and they helped me to find an apartment. I am still learning the words that people use in the office. Sometimes I do not understand the jokes. But I am happy that I came here and I think it was a good decision for my family.
 
 ---
 
