@@ -744,22 +744,81 @@ appeal id and MF05) are separate, smaller problems.
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** One line in `config.py`: `AI_THRESHOLD` went from 0.70 to
+0.80. Now the high-confidence AI label only shows up above 0.80, and the
+unsure band is 0.40 to 0.80. Nothing else changed: same signals, same
+weights, same combining rule, same label text.
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** Diagnosis 1. Five real human texts
+(FP02-FP06) got the AI label with combined scores between 0.77 and 0.83, and
+one piece of my own speech got 0.71. In my Milestone 1 notes I said calling a
+real writer AI is the worst mistake this system can make, so I went after
+that one. The real fix would be in the signals, since they both read plain
+writing as AI, but that's a much bigger change and I wouldn't be able to tell
+which part of it helped. Moving the threshold is one change I can measure.
 
 ### Attack Run — After
 
 <!-- Same format. `run_attacks.py --label after` -->
 
+Full output: `results/attack_run_2026-11-08_1614_after.md`. Same rules for
+held and broke as before. Every score came out exactly the same as the before
+run (the signals aren't random), so only the labels moved.
 
+| Family | Before: held / broke | After: held / broke |
+|---|---|---|
+| evasion | 3 / 7 | 1 / 9 |
+| false_positive | 3 / 5 | **6 / 2** |
+| prompt_injection | 4 / 2 | 3 / 3 |
+| malformed | 19 / 1 | 19 / 1 |
+| flood_same_creator | 12 / 0 | 12 / 0 |
+| **total** | **41 / 15** | **41 / 15** |
+
+What changed between the two runs (the other 50 came out the same):
+
+| ID | What it is | combined | Before | After |
+|---|---|---|---|---|
+| FP02 | human, formal register | 0.77 | ai (BROKE) | unsure (HELD) |
+| FP05 | human, technical docs | 0.78 | ai (BROKE) | unsure (HELD) |
+| FP06 | human, formal template | 0.78 | ai (BROKE) | unsure (HELD) |
+| EV03 | AI with a pasted quote | 0.70 | ai (HELD) | unsure (BROKE) |
+| EV09 | AI with a human opening paragraph | 0.75 | ai (HELD) | unsure (BROKE) |
+| PI03 | AI with a "note to the reviewer" | 0.71 | ai (HELD) | unsure (BROKE) |
+
+Still broken after: FP03 (0.83) and FP04 (0.83) are still called AI, and the
+only AI attack still caught is EV10.
+
+**My five criteria, after** (`run_eval.py --label after` →
+`results/run_2026-11-08_1614_after.md`, appeals → `results/appeals_2026-11-08_after.md`)
+
+| Criterion | Target | Before (runs 1/2/3) | After (runs 1/2/3) | Verdict before → after |
+|---|---|---|---|---|
+| 1. My own writing labeled AI | at most 1 of 10 | 1, 1, 1 | 0, 0, 0 | MET → MET |
+| 2. clearly_ai minus clearly_human | at least 0.30 | 0.41, 0.41, 0.41 | 0.41, 0.41, 0.41 | MET → MET |
+| 3. Each label at least 2 of 10 | every label ≥ 2 | AI 2, unsure 7, human 1 (all 3 runs) | AI **0**, unsure 9, human 1 (all 3 runs) | MISSED → MISSED (worse) |
+| 4. Appeals recorded, fake id refused | ≥ 9 of 10 + fake refused | 10/10, fake refused only in run 1 | 10/10, fake accepted in all 3 | MISSED → MISSED |
+| 5. Bad input gets a 400 | 7 of 7 | 7/7 ×3 | 7/7 ×3 | MET → MET |
+
+Criterion 4 got worse only because the fake id from the before run was still
+in the log, so it was accepted from the first try. That's the same bug from
+Diagnosis 4, not something the threshold did. Criterion 2 measures the gap in
+scores, not labels, so it didn't move, even though clearly_ai now gets
+"unsure" instead of "AI".
 
 **Did it help, and how do I know:**
 
 <!-- Widening the unsure band usually fixes one problem and creates another.
      Reporting that trade honestly is worth full credit. -->
 
-
+It helped with the thing I cared about most, and it made the other side
+worse by exactly the same amount. Real writers called AI in the attack set
+went from 5 to 2, and my own writing went from 1 in 10 to 0. But 3 AI texts
+that used to get caught now get "unsure" (EV03, EV09, PI03), so the total
+broken stayed at 15. Criterion 3 also got worse: now not even clearly_ai gets
+the AI label, so the AI label showed up 0 times out of 10. So it didn't make
+the system better overall, it moved who pays for the mistakes, from real
+writers to the site letting more AI text through. For a writing site I think
+that's the right direction, but it's a trade, not a fix.
 
 ---
 

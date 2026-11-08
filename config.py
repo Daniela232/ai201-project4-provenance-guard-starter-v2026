@@ -86,7 +86,10 @@ DISAGREEMENT_PULL = 0.5
 # is below 0.40 so my clearly-human test text (0.375 after the disagreement
 # rule) still gets the human label. That leaves a wide unsure band, 0.40-0.70.
 HUMAN_THRESHOLD = 0.40
-AI_THRESHOLD = 0.70
+# Unit 8 improvement: moved from 0.70 to 0.80. My attack run showed 5 of 8
+# real human texts getting the AI label (0.73-0.83), so I widened the unsure
+# band. This is my one change for unit 8 Milestone 5.
+AI_THRESHOLD = 0.80
 
 # ⚠️ One thing that catches people out in Milestone 5. A weighted average can
 # only land between its two inputs — so while `style_signal` is still the stub
