@@ -642,7 +642,103 @@ Criterion 5 (`run_eval.py::main`, trial 1), all 7 bad bodies got a 400:
 
      Look for a pattern. Five failures on one signal is one problem, not five. -->
 
+**How I decided each verdict**
 
+1. **MET.** 1 of my 10 pieces got the AI label in all three runs, and my
+   target was at most 1. It's a close call though: that piece (the "arriving
+   in New York" part of my speech) scored 0.71, right over my 0.70 line.
+2. **MET.** The gap was 0.41 in all three runs, and the target was at least 0.30.
+3. **MISSED.** The human label showed up only 1 time out of 10, in every run.
+   The target was at least 2 for every label.
+4. **MISSED.** All 10 real appeals were recorded every run, but the fake id
+   got accepted in runs 2 and 3. My criterion says a fake id gets an error and
+   changes nothing, and it has to hold every run.
+5. **MET.** 7 of 7 bad inputs got a 400 in all three runs, no crashes.
+
+**Diagnosis 1: real human writing called AI (FP02, FP03, FP04, FP05, FP06, and my
+speech piece for criterion 1)**
+
+Stage: **signal one and signal two, both.** These were formal, careful, or
+plain writing: a formal register, a non-native speaker writing carefully, a
+student essay to a rubric, tech docs, a template. Signal one gave them 0.74 to
+0.88 because careful writing uses common words in common orders, so GPT-2
+finds it predictable. Signal two gave them 0.67 to 0.85 because that kind of
+writing has even sentence lengths and not much dash or semicolon punctuation,
+which is exactly what my style signal reads as AI. Both signals made the same
+mistake for the same reason, so they agreed, and my disagreement rule only
+steps in when they disagree. My speech piece is the same thing in a smaller
+way: model 0.83, style 0.59, combined 0.71.
+
+**Diagnosis 2: AI text slipping into "unsure" (EV01, EV02, EV04, EV05, EV06,
+EV07, EV08, PI01, PI02)**
+
+Stage: **mostly the signals getting fooled, and the combining rule for one of
+them.** I first thought it was my combining rule, but when I checked what a
+plain 50/50 average would have done, it only changed the result for 1 of 9:
+
+| Attack | model | style | Rule kicked in? | Plain average | Label without my rule |
+|---|---|---|---|---|---|
+| EV04 | 0.61 | 0.94 | yes | 0.78 | AI |
+| EV01 (typos) | 0.16 | 0.94 | yes | 0.55 | unsure |
+| EV08 (short) | 0.25 | 1.00 | yes | 0.62 | unsure |
+| EV07 (punctuation padding) | 0.59 | 0.28 | yes | 0.44 | unsure |
+| PI02 | 0.20 | 0.70 | yes | 0.45 | unsure |
+| EV02 (broken-up sentences) | 0.59 | 0.58 | no | 0.59 | unsure |
+| EV05 (heavy editing) | 0.32 | 0.52 | no | 0.42 | unsure |
+| EV06 (one long, one short sentence) | 0.57 | 0.47 | no | 0.52 | unsure |
+| PI01 | 0.46 | 0.76 | no | 0.61 | unsure |
+
+- **Signal one** got fooled in EV01, EV08, PI01 and PI02. Typos, a very short
+  text, and the injection sentences stuck on the front all make GPT-2 more
+  "surprised", so its score dropped even though the text is AI. The injections
+  didn't work as instructions (nothing in my system reads instructions), they
+  worked because the extra sentences changed the statistics.
+- **Signal two** got fooled in EV07 and EV06. Padding with punctuation raises my
+  punctuation density, and one very long sentence next to a very short one
+  raises the sentence length spread, and both of those read as human to it.
+- In EV02 and EV05, both signals came down to the middle together.
+- **The combining rule** only decided EV04. Without it, EV04 would have been
+  labeled AI.
+
+**Diagnosis 3: criterion 3, only one "human" label**
+
+Stage: **signal two.** The only text that got the human label was
+clearly_human, with a style score of 0.06. My three "my day" pieces got style
+scores of 0.51, 0.62 and 0.80. They're short, and part 3 is one sentence.
+Short text has hardly any sentence length spread (one sentence gets 0.5 by my
+own rule), not much punctuation, and almost every word is unique, which my
+vocab measure reads as AI. So my style signal keeps pushing short, casual
+human writing up toward the middle, and it almost never gets below 0.40.
+
+**Diagnosis 4: criterion 4, the fake appeal id**
+
+Stage: **the route (`app.py::appeal`).** In unit 8 Milestone 1 I started
+logging rejected appeals with `audit.log_rejection`, and that entry includes
+the `content_id`. `/appeal` checks whether a submission exists by asking "is
+there any log entry with this id?" (`audit.entries_for`). The first time a
+fake id is sent, there isn't one, so it gets a 404, but the 404 itself writes
+a log entry with that id. The second time, `/appeal` finds that rejection
+entry, thinks the submission exists, and records the appeal. So a fake id
+gets refused once and accepted every time after that.
+
+**Diagnosis 5: MF05, junk called AI**
+
+Stage: **the route.** MF05 is a single "word" that's 60,000 characters long. My
+length check counts words (max 1500) and this is 1 word, so it went straight
+to the signals. Signal one gave it 0.998 and signal two 0.8, so it got the
+high-confidence AI label for something that isn't writing at all.
+
+**The pattern**
+
+Most of my failures come from the two signals, not from the combining rule or
+the labels. Both signals read *the shape of plain writing* as AI: predictable
+words for signal one, even sentences and little punctuation for signal two.
+That one problem explains the false positives (careful human writing looks
+like AI to both) and criterion 3 (short casual writing never gets low enough
+to be called human). It works the other way for evasions: anything that
+messes up the shape, like typos, punctuation, or odd sentence lengths, pulls
+one signal down and the AI text lands in unsure. The two route bugs (the fake
+appeal id and MF05) are separate, smaller problems.
 
 ---
 
