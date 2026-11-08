@@ -491,17 +491,126 @@ The text:
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. My own writing labeled high-confidence AI | at most 1 of 10, every run | 1/10 | 1/10 | 1/10 | MET |
+| 2. clearly_ai minus clearly_human (combined) | at least 0.30, every run | 0.41 | 0.41 | 0.41 | MET |
+| 3. Each label shows up out of 10 texts | every label at least 2 times | AI 2, unsure 7, human 1 | AI 2, unsure 7, human 1 | AI 2, unsure 7, human 1 | MISSED |
+| 4. Real appeals recorded, fake id gets an error and changes nothing | at least 9 of 10, and fake id refused | 10/10, fake 404 | 10/10, fake **200** | 10/10, fake **200** | MISSED |
+| 5. Bad input gets a 400, not a crash | 7 of 7, every time | 7/7 | 7/7 | 7/7 | MET |
+
+All three runs came out the same for every criterion. That's expected, since
+nothing in either signal is random.
+
+How I ran them: criteria 1, 2, 3 and 5 are in `scenarios.py` and ran with
+`python run_eval.py --label before` (output: `results/run_2026-11-08_1559_before.md`).
+Criterion 4 can't be tested by sending text alone, so I tested it with
+`python check_appeals.py before results/appeals_2026-11-08_before.md`. It
+submits 10 texts, appeals each one, checks `GET /log` shows the appeal, then
+sends one appeal with a fake id.
+
+My own writing for criterion 1 is 3 pieces from my SPE21 speech and 7 from my
+HUM 300 final paper, no AI help. For criterion 3, 7 texts come from the class
+samples and my speech, and 3 are parts of a few sentences I wrote about my day.
 
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
 
-```json
+Criterion 1, the one piece of my writing that got the AI label (`run_eval.py::main`,
+trial 1). It's the "arriving in New York" part of my speech. Combined score is
+0.71, just over my 0.70 line:
 
+```json
+{
+  "status": 200,
+  "guess": "ai",
+  "model_score": 0.8325,
+  "style_score": 0.5927,
+  "sent": "I was shocked by what I saw, when I got out of the airplane. All these"
+}
+```
+
+Criterion 2 (`run_eval.py::main`, trial 1). Combined: 0.79 vs 0.38, gap 0.41.
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "ai",
+    "model_score": 0.7544,
+    "style_score": 0.8314,
+    "sent": "The importance of effective time management cannot be overstated in to"
+  },
+  {
+    "status": 200,
+    "guess": "human",
+    "model_score": 0.4445,
+    "style_score": 0.0568,
+    "sent": "I didn't sleep. Not properly, anyway — I lay there listening to the bo"
+  }
+]
+```
+
+Criterion 3, the only text that got the human label (`run_eval.py::main`, trial 1).
+None of my own day writing got it, all three were unsure:
+
+```json
+[
+  {
+    "status": 200,
+    "guess": "human",
+    "model_score": 0.4445,
+    "style_score": 0.0568,
+    "sent": "I didn't sleep. Not properly, anyway — I lay there listening to the bo"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "model_score": 0.7401,
+    "style_score": 0.5102,
+    "sent": "Today , I woke up at around 7:40am and layed in bed for about 10 minut"
+  },
+  {
+    "status": 200,
+    "guess": "unsure",
+    "model_score": 0.214,
+    "style_score": 0.8,
+    "sent": "there they served us lunch about 3 hours in and now im waiting here un"
+  }
+]
+```
+
+Criterion 4 (`check_appeals.py`, trial 2). The fake id that should have been
+refused got recorded as an appeal. The log lines for it:
+
+```json
+{"timestamp": "2026-11-08T20:59:42+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "appeal_unknown_content_id", "content_id": "c_fake000000", "status_code": 404}
+{"timestamp": "2026-11-08T20:59:43+00:00", "content_id": "c_fake000000", "creator_id": "unknown", "event": "appeal", "status": "under_review", "reasoning": "test"}
+{"timestamp": "2026-11-08T20:59:44+00:00", "content_id": "c_fake000000", "creator_id": "unknown", "event": "appeal", "status": "under_review", "reasoning": "test"}
+```
+
+Criterion 5 (`run_eval.py::main`, trial 1), all 7 bad bodies got a 400:
+
+```json
+[
+  {
+    "status": 400,
+    "sent": "(empty text)"
+  },
+  {
+    "status": 400,
+    "sent": "     "
+  },
+  {
+    "status": 400,
+    "sent": "{\"creator_id\": \"eval_bad_missing\"}"
+  },
+  {
+    "status": 400,
+    "sent": "{\"text\": null, \"creator_id\": \"eval_bad_null\"}"
+  },
+  {
+    "...": "3 more, all 400"
+  }
+]
 ```
 
 **Diagnoses**
