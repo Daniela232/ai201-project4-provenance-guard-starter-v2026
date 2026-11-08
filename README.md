@@ -346,6 +346,33 @@ with status `under_review`.
   what I wrote in Milestone 1 about only calling something AI if both signals
   agree. I accepted that it pushes some real human writing toward "unsure".
 
+**Moment 3 (unit 8)**
+
+- *What I asked for:* Help diagnosing why 7 of my 10 evasion attacks landed
+  in "unsure". Claude gave me possible causes at different stages without
+  saying which one was right, and I picked the combining rule, since most of
+  them had a big gap between the two signals.
+- *What came back:* Claude checked my answer against the numbers. It made a
+  table of what a plain 50/50 average would have done, and my rule only
+  changed the result for 1 of the 9 (EV04). In the rest, one signal had
+  already been fooled, so they would have been "unsure" anyway.
+- *What I changed:* I changed my diagnosis to "mostly the signals getting
+  fooled" (signal one by typos, short text, and injections, signal two by
+  punctuation padding and odd sentence lengths) and kept the table in my
+  README as proof.
+
+**Moment 4 (unit 8)**
+
+- *What I asked for:* Help setting up my criterion 1 test, which needs 10
+  pieces of my own writing.
+- *What came back:* Before using anything, Claude pointed out that the
+  "Ana-style plain human" text in my unit 7 README was actually written by
+  Claude to imitate the Ana example, and that my README called it a real
+  false positive.
+- *What I changed:* I added correction notes in the unit 7 sections instead
+  of deleting what I wrote, and used my own writing (my SPE21 speech and HUM
+  300 paper) for criterion 1 so the test is real.
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
@@ -827,13 +854,53 @@ that's the right direction, but it's a trade, not a fix.
 <!-- For each attack still getting through and each criterion still missed:
      what you'd do, and why you stopped. -->
 
+Why I stopped on all of these: the brief only allows one change in unit 8, so
+the threshold was my one change. Everything below is what I'd do next, in the
+order I'd do it.
 
+1. **Criterion 4, the fake appeal id (route).** This is the first thing I'd
+   fix because it's a real bug and it's easy. `/appeal` should only count a
+   `decided` entry as proof that a submission exists, not any entry with that
+   `content_id`. That way a rejected appeal can't make a fake id look real.
+   I didn't fix it because it wasn't my one change.
+
+2. **FP03 and FP04 still called AI, and criterion 1 was close (signals one and
+   two).** Raising the threshold more would fix these two but lose even more AI
+   text. The real problem is that both signals read careful, plain writing as
+   AI. I'd look at signal two first: the vocab measure (which I already flipped
+   in unit 7 based on only three texts) and how it treats short text. I stopped
+   because changing a signal is a bigger change and needs its own before and
+   after.
+
+3. **Criterion 3, the human label almost never shows up, and now the AI label
+   doesn't show up either (signal two + my threshold).** Short casual writing
+   gets style scores of 0.5-0.8, so it can't get below 0.40. I'd fix signal
+   two's short-text handling (one sentence gets 0.5 for spread, and every word
+   being unique reads as AI). The AI label disappearing is the cost of my
+   threshold change, so I'd only get it back by making the signals separate
+   better, not by moving the line back.
+
+4. **Evasions and injections landing in unsure (EV01-EV09, PI01-PI03; signals
+   one and two).** Typos, a pasted quote, an added human paragraph, or extra
+   sentences on top all pull one signal down. I'd probably accept most of
+   these. They land in "unsure", not "human", so nobody gets a "this is
+   human" stamp on AI text, and with my threshold at 0.80 that's partly on
+   purpose.
+
+5. **MF05, a 60,000-character single word called AI (route).** I'd add a
+   character limit next to the 1500-word limit, and maybe reject text that has
+   no real words in it. Small fix, I stopped because of the one-change rule.
 
 **The trade I'd make if this ran for real:**
 
 <!-- Two sentences. Fewer wrong accusations means more AI text getting through.
      Say which way you'd go and WHO PAYS FOR IT. -->
 
+I'd go with fewer wrong accusations, like my 0.80 threshold does, because
+being told your own writing was made by a machine hurts a real person a lot
+more than some AI text slipping through hurts the site. The ones who pay for
+it are the site and its readers, who will see more AI writing labeled
+"unsure" instead of caught, and honest writers competing with it.
 
 
 <!-- ═════════════════════════════════════════════════════════════════════
