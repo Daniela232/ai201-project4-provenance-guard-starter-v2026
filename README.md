@@ -176,6 +176,14 @@ fix this either: any line that labels clearly AI (0.79) as AI would also label
 the plain human text (0.84) as AI. I'm leaving it as is and writing it down,
 because it's the most important thing for next unit's testing to hit.
 
+> **Correction (unit 8):** the "plain human writing (Ana-style)" text in this
+> table wasn't actually written by a person. Claude wrote it to imitate the
+> Ana example from my notes, and I didn't catch that when I labeled it. So it
+> getting a high AI score doesn't prove a false positive. The real evidence came
+> in unit 8: FP03 in the attack set (a non-native English speaker writing
+> carefully) got the AI label with a combined score of 0.83, and one piece of my
+> own speech got 0.71.
+
 ---
 
 ## Label Variants
@@ -222,6 +230,11 @@ every word.
 This is my Ana-style test text (plain writing from someone whose second
 language is English). It's a real false positive, which is why I used it for
 the appeal.
+
+> **Correction (unit 8):** this text was written by Claude to imitate Ana's
+> style, not by a real person, so it isn't a real false positive. The submit,
+> appeal, and log steps below still show the endpoints working the way they
+> should.
 
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
