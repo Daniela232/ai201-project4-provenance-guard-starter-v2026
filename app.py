@@ -151,7 +151,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -207,27 +207,32 @@ def submit():
 
     text = payload.get("text")
     creator_id = payload.get("creator_id", "unknown")
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        creator_id = "unknown"
 
     # Bad input checks (criterion 5): every one of these gets a 400 with a
     # message the writer can understand, never a crash.
     if text is None or (isinstance(text, str) and not text.strip()):
+        audit.log_rejection(creator_id=creator_id, reason="empty_text", status_code=400)
         return jsonify({
             "error": "bad_request",
             "message": "Nothing was entered. Please enter some text.",
         }), 400
     if not isinstance(text, str):
         # e.g. a number or a list instead of words
+        audit.log_rejection(creator_id=creator_id, reason="not_text",
+                            text_type=type(text).__name__, status_code=400)
         return jsonify({
             "error": "bad_request",
             "message": "That isn't text. Please enter text.",
         }), 400
     if len(text.split()) > config.MAX_WORDS:
+        audit.log_rejection(creator_id=creator_id, reason="too_long",
+                            word_count=len(text.split()), status_code=400)
         return jsonify({
             "error": "too_long",
             "message": f"That text is too long. Please keep it under {config.MAX_WORDS} words.",
         }), 400
-    if not isinstance(creator_id, str) or not creator_id.strip():
-        creator_id = "unknown"
 
     # Step 3 — one real signal (tested first from the terminal:
     #   python detector.py "some text").
@@ -239,6 +244,7 @@ def submit():
         model_score = detector.model_signal(text)
     except ValueError as exc:
         # The detector refuses text that's too short to judge (under 3 tokens).
+        audit.log_rejection(creator_id=creator_id, reason="too_short", status_code=400)
         return jsonify({"error": "too_short", "message": str(exc)}), 400
 
     # Step 5 — signal two, the style signal (tested first from the terminal:
@@ -314,11 +320,14 @@ def appeal():
 
     # Both fields are required and can't be blank.
     if not isinstance(content_id, str) or not content_id.strip():
+        audit.log_rejection(creator_id="unknown", reason="appeal_missing_content_id", status_code=400)
         return jsonify({
             "error": "bad_request",
             "message": "Please include the content_id from your submission.",
         }), 400
     if not isinstance(reasoning, str) or not reasoning.strip():
+        audit.log_rejection(creator_id="unknown", reason="appeal_missing_reasoning",
+                            content_id=str(content_id), status_code=400)
         return jsonify({
             "error": "bad_request",
             "message": "Please tell us why you think the result is wrong.",
@@ -330,6 +339,8 @@ def appeal():
     # a fake id gets an error and changes nothing).
     history = audit.entries_for(content_id)
     if not history:
+        audit.log_rejection(creator_id="unknown", reason="appeal_unknown_content_id",
+                            content_id=content_id, status_code=404)
         return jsonify({
             "error": "not_found",
             "message": f"We couldn't find a submission with id {content_id}.",

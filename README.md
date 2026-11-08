@@ -339,7 +339,7 @@ with status `under_review`.
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 10 per minute, 200 per day
 
 **Why those numbers and not others:**
 <!-- Think about two people: a real writer submitting their own work a few
@@ -347,16 +347,57 @@ with status `under_review`.
      thresholds. Your numbers have to be liveable for the first and hostile to
      the second. -->
 
+I went with 10 a minute and 200 a day because it doesn't take that long. A real
+writer who submits, edits, and resubmits a few times in a row won't hit the
+limit, and if they ever do they only wait a minute. A script trying to map my
+thresholds with 1000 variations gets cut off after 10 a minute and 200 a day,
+so it would take at least 5 days instead of a few minutes.
+
 **What a caller counts as:** <!-- per address, or per creator_id? They fail
 differently — one script can look like a thousand callers, and one household
 can look like one. -->
+
+Per `creator_id`. If a request has no usable `creator_id`, it counts against
+the caller's address instead. The weakness is that `creator_id` is just
+something the caller types in, so a script could send a different one every
+time and never hit the limit.
 
 **The run of status codes when I pushed past it:**
 
 <!-- python run_attacks.py --flood 15 -->
 
 ```
+$ python run_attacks.py --flood 15
+200 200 200 200 200 200 200 200 200 200 429 429 429 429 429
 
+5 of 15 were rate limited.
+```
+
+The rejections show up in the log too (`GET /log`):
+
+```json
+{
+  "creator_id": "flood_tester",
+  "event": "rejected",
+  "limit": "10 per 1 minute",
+  "reason": "rate_limited",
+  "status": "rejected",
+  "timestamp": "2026-11-08T20:36:56+00:00"
+}
+```
+
+And a request my own route refuses (empty text) gets logged as a rejection
+too, with `audit.log_rejection`:
+
+```json
+{
+  "creator_id": "m1_logcheck",
+  "event": "rejected",
+  "reason": "empty_text",
+  "status": "rejected",
+  "status_code": 400,
+  "timestamp": "2026-11-08T20:37:06+00:00"
+}
 ```
 
 ---
